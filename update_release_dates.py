@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to update sealed_products_tracking.csv by replacing modifiedOn with releaseDate
+Script to update sealed_products_tracking.csv by replacing modifiedOn with earliestDate
 from TCG API presaleInfo.releasedOn field
 """
 
@@ -59,7 +59,7 @@ def get_all_products_with_release_dates():
 
 def update_csv_with_release_dates():
     """
-    Update the CSV file by replacing modifiedOn with releaseDate
+    Update the CSV file by replacing modifiedOn with earliestDate
     """
     csv_file = '/Users/gaurav/Downloads/Projects/Pokemon/PokemonSealedPriceTeacker/sealed_products_tracking.csv'
     
@@ -73,19 +73,19 @@ def update_csv_with_release_dates():
     product_release_dates = get_all_products_with_release_dates()
     
     # Create a new column for release dates
-    df['releaseDate'] = None
+    df['earliestDate'] = None
     
     # Update release dates for products we found
     for index, row in df.iterrows():
         product_id = row['productId']
         if product_id in product_release_dates:
-            df.at[index, 'releaseDate'] = product_release_dates[product_id]
+            df.at[index, 'earliestDate'] = product_release_dates[product_id]
             print(f"Updated product {product_id} with release date {product_release_dates[product_id]}")
         else:
             print(f"No release date found for product {product_id}")
     
     # Remove the modifiedOn column and reorder columns
-    columns = ['productId', 'name', 'cleanName', 'imageUrl', 'releaseDate', 'set_code', 'url']
+    columns = ['productId', 'name', 'cleanName', 'imageUrl', 'earliestDate', 'set_code', 'url']
     df = df[columns]
     
     # Save the updated CSV
@@ -97,7 +97,7 @@ def update_csv_with_release_dates():
     df.to_csv(csv_file, index=False)
     
     # Print summary
-    valid_dates = df['releaseDate'].notna().sum()
+    valid_dates = df['earliestDate'].notna().sum()
     print(f"\nSummary:")
     print(f"Total products: {len(df)}")
     print(f"Products with release dates: {valid_dates}")
