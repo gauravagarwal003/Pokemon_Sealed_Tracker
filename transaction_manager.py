@@ -133,6 +133,21 @@ class TransactionManager:
         
         return None
     
+    def get_latest_market_prices(self):
+        """Get the most recent market prices available"""
+        price_files = glob.glob(f"{self.daily_prices_dir}/market_prices_*.parquet")
+        if not price_files:
+            return pd.DataFrame()
+        
+        # Sort files to get the latest one
+        price_files.sort(reverse=True)
+        latest_file = price_files[0]
+        
+        try:
+            return pd.read_parquet(latest_file)
+        except Exception:
+            return pd.DataFrame()
+    
     def calculate_portfolio_value_for_date(self, target_date):
         """Calculate total portfolio value for a specific date"""
         # Get all transactions up to this date
@@ -165,10 +180,12 @@ class TransactionManager:
             if current_quantity <= 0:
                 continue
             
-            # Calculate cost basis
+            # Calculate cost basis using average cost method
+            # Cost basis = remaining quantity × average purchase price
             buy_cost = (bought['quantity'] * bought['price_per_unit']).sum() if not bought.empty else 0
-            sell_revenue = (sold['quantity'] * sold['price_per_unit']).sum() if not sold.empty else 0
-            product_cost_basis = buy_cost - sell_revenue
+            total_bought_qty = bought['quantity'].sum() if not bought.empty else 0
+            avg_purchase_cost = buy_cost / total_bought_qty if total_bought_qty > 0 else 0
+            product_cost_basis = current_quantity * avg_purchase_cost
             
             # Get market value
             market_price = self.get_market_price(product_id, target_date)
@@ -227,18 +244,22 @@ class TransactionManager:
         latest_daily_value = self.db.get_daily_portfolio_value()
         if not latest_daily_value.empty:
             latest = latest_daily_value.iloc[-1]
-            current_market_value = latest['total_market_value']
-            total_cost_basis = latest['total_cost_basis']
-            unrealized_pnl = latest['unrealized_pnl']
+            current_market_value = float(latest['total_market_value']) if latest['total_market_value'] is not None else 0.0
+            total_cost_basis = float(latest['total_cost_basis']) if latest['total_cost_basis'] is not None else 0.0
+            unrealized_pnl = float(latest['unrealized_pnl']) if latest['unrealized_pnl'] is not None else 0.0
         else:
-            current_market_value = 0
-            total_cost_basis = holdings['total_cost_basis'].sum()
-            unrealized_pnl = 0
+            current_market_value = 0.0
+            total_cost_basis = float(holdings['total_cost_basis'].sum()) if not holdings.empty else 0.0
+            unrealized_pnl = 0.0
+        
+        # Ensure all values are proper numeric types
+        total_products = int(len(holdings)) if not holdings.empty else 0
+        total_quantity = int(holdings['current_quantity'].sum()) if not holdings.empty else 0
         
         return {
-            'total_products': len(holdings),
-            'total_quantity': holdings['current_quantity'].sum(),
-            'total_cost_basis': total_cost_basis,
-            'current_market_value': current_market_value,
-            'unrealized_pnl': unrealized_pnl
+            'total_products': total_products,
+            'total_quantity': total_quantity,
+            'total_cost_basis': float(total_cost_basis),
+            'current_market_value': float(current_market_value),
+            'unrealized_pnl': float(unrealized_pnl)
         }

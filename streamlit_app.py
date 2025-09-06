@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from datetime import datetime, date
 from transaction_manager import TransactionManager
 from fuzzywuzzy import fuzz, process
@@ -50,10 +49,11 @@ def create_portfolio_chart(daily_values_df):
         st.warning("No portfolio data available for charting.")
         return None
     
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
-    
     # Convert date column to datetime
     daily_values_df['date'] = pd.to_datetime(daily_values_df['date'])
+    
+    # Create figure with single y-axis
+    fig = go.Figure()
     
     # Collection Value line
     fig.add_trace(
@@ -61,9 +61,9 @@ def create_portfolio_chart(daily_values_df):
             x=daily_values_df['date'], 
             y=daily_values_df['total_market_value'],
             name="Collection Value",
-            line=dict(color='blue', width=2)
-        ),
-        secondary_y=False,
+            line=dict(color='blue', width=3),
+            hovertemplate='<b>Collection Value</b><br>Date: %{x}<br>Value: $%{y:,.2f}<extra></extra>'
+        )
     )
     
     # Cost Basis line
@@ -72,33 +72,38 @@ def create_portfolio_chart(daily_values_df):
             x=daily_values_df['date'], 
             y=daily_values_df['total_cost_basis'],
             name="Cost Basis",
-            line=dict(color='red', width=2)
-        ),
-        secondary_y=False,
-    )
-    
-    # Profit/Loss area
-    fig.add_trace(
-        go.Scatter(
-            x=daily_values_df['date'], 
-            y=daily_values_df['unrealized_pnl'],
-            name="Unrealized P&L",
-            fill='tonexty',
-            line=dict(color='green' if daily_values_df['unrealized_pnl'].iloc[-1] >= 0 else 'red')
-        ),
-        secondary_y=True,
+            line=dict(color='red', width=2, dash='dash'),
+            hovertemplate='<b>Cost Basis</b><br>Date: %{x}<br>Value: $%{y:,.2f}<extra></extra>'
+        )
     )
     
     # Update layout
     fig.update_layout(
-        title="Portfolio Value Over Time",
-        height=500,
-        hovermode='x unified'
+        title={
+            'text': "Portfolio Performance Over Time",
+            'x': 0.5,
+            'xanchor': 'center'
+        },
+        height=600,
+        hovermode='x unified',
+        xaxis_title="Date",
+        yaxis_title="Value ($)",
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01
+        ),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)'
     )
     
-    fig.update_yaxes(title_text="Value ($)", secondary_y=False)
-    fig.update_yaxes(title_text="Profit/Loss ($)", secondary_y=True)
-    fig.update_xaxes(title_text="Date")
+    # Add grid
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+    
+    # Format y-axis to show dollar signs
+    fig.update_yaxes(tickformat='$,.0f')
     
     return fig
 
@@ -213,21 +218,13 @@ def main():
         # Portfolio summary
         summary = tm.get_portfolio_summary()
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Total Products", summary['total_products'])
         with col2:
             st.metric("Total Quantity", summary['total_quantity'])
         with col3:
             st.metric("Total Cost Basis", f"${summary['total_cost_basis']:,.2f}")
-        with col4:
-            pnl_color = "normal" if summary['unrealized_pnl'] >= 0 else "inverse"
-            st.metric(
-                "Unrealized P&L", 
-                f"${summary['unrealized_pnl']:,.2f}",
-                delta=f"{summary['unrealized_pnl']:,.2f}",
-                delta_color=pnl_color
-            )
         
         # Portfolio chart
         st.subheader("Portfolio Value Over Time")
@@ -245,14 +242,79 @@ def main():
         holdings = tm.db.get_portfolio_holdings()
         
         if not holdings.empty:
+            # Get latest market prices
+            latest_prices = tm.get_latest_market_prices()
+            
             # Format the dataframe for display
             display_holdings = holdings.copy()
-            display_holdings = display_holdings[['product_name', 'current_quantity', 'average_cost_per_unit', 'total_cost_basis']]
-            display_holdings.columns = ['Product Name', 'Quantity', 'Avg Cost/Unit', 'Total Cost Basis']
-            display_holdings['Avg Cost/Unit'] = display_holdings['Avg Cost/Unit'].apply(lambda x: f"${x:.2f}")
-            display_holdings['Total Cost Basis'] = display_holdings['Total Cost Basis'].apply(lambda x: f"${x:.2f}")
             
-            st.dataframe(display_holdings, use_container_width=True)
+            # Calculate current market values
+            if not latest_prices.empty:
+                # Merge with latest prices
+                price_lookup = latest_prices.set_index('productId')['marketPrice'].to_dict()
+                display_holdings['current_price_per_unit'] = display_holdings['product_id'].map(price_lookup)
+                display_holdings['current_price_per_unit'] = display_holdings['current_price_per_unit'].fillna(0)
+                display_holdings['total_current_value'] = display_holdings['current_quantity'] * display_holdings['current_price_per_unit']
+            else:
+                display_holdings['current_price_per_unit'] = 0
+                display_holdings['total_current_value'] = 0
+            
+            # Select and rename columns for display
+            display_holdings = display_holdings[[
+                'product_name', 'current_quantity', 'average_cost_per_unit', 
+                'total_cost_basis', 'current_price_per_unit', 'total_current_value'
+            ]]
+            
+            # Ensure all numeric columns are properly typed
+            numeric_cols = ['current_quantity', 'average_cost_per_unit', 'total_cost_basis', 'current_price_per_unit', 'total_current_value']
+            for col in numeric_cols:
+                display_holdings[col] = pd.to_numeric(display_holdings[col], errors='coerce')
+            
+            # Add sorting controls
+            sort_col1, sort_col2 = st.columns(2)
+            with sort_col1:
+                sort_by = st.selectbox(
+                    "Sort by:",
+                    options=['product_name', 'current_quantity', 'average_cost_per_unit', 'total_cost_basis', 'current_price_per_unit', 'total_current_value'],
+                    format_func=lambda x: {
+                        'product_name': 'Product Name',
+                        'current_quantity': 'Quantity',
+                        'average_cost_per_unit': 'Avg Cost/Unit',
+                        'total_cost_basis': 'Total Cost Basis',
+                        'current_price_per_unit': 'Current Price/Unit',
+                        'total_current_value': 'Total Current Value'
+                    }[x],
+                    index=5  # Default to Total Current Value
+                )
+            with sort_col2:
+                sort_ascending = st.selectbox("Order:", options=[False, True], format_func=lambda x: "Descending" if not x else "Ascending", index=0)
+            
+            # Apply sorting
+            display_holdings = display_holdings.sort_values(by=sort_by, ascending=sort_ascending)
+            
+            display_holdings.columns = [
+                'Product Name', 'Quantity', 'Avg Cost/Unit', 'Total Cost Basis', 
+                'Current Price/Unit', 'Total Current Value'
+            ]
+            
+            # Format the display for better readability while preserving sortability
+            display_df = display_holdings.copy()
+            currency_cols = ['Avg Cost/Unit', 'Total Cost Basis', 'Current Price/Unit', 'Total Current Value']
+            
+            # Create styled version with proper formatting
+            st.dataframe(
+                display_df,
+                width='stretch',
+                hide_index=True,
+                column_config={
+                    'Product Name': st.column_config.TextColumn('Product Name', width='medium'),
+                    'Quantity': st.column_config.NumberColumn('Quantity', format='%d'),
+                    'Avg Cost/Unit': st.column_config.NumberColumn('Avg Cost/Unit', format='$%.2f'),
+                    'Total Cost Basis': st.column_config.NumberColumn('Total Cost Basis', format='$%.2f'),
+                    'Current Price/Unit': st.column_config.NumberColumn('Current Price/Unit', format='$%.2f'),
+                    'Total Current Value': st.column_config.NumberColumn('Total Current Value', format='$%.2f')
+                }
+            )
         else:
             st.info("No current holdings. Add some transactions to see your portfolio.")
     
@@ -293,7 +355,15 @@ def main():
             
             if selected_transaction_display:
                 selected_trans_id = transaction_map[selected_transaction_display]
-                selected_trans = transactions[transactions['transaction_id'] == selected_trans_id].iloc[0]
+                
+                # Safety check: ensure the transaction still exists
+                selected_trans_filter = transactions[transactions['transaction_id'] == selected_trans_id]
+                if selected_trans_filter.empty:
+                    st.error("Transaction not found. Please refresh the page.")
+                    st.rerun()
+                    return
+                
+                selected_trans = selected_trans_filter.iloc[0]
                 
                 col1, col2 = st.columns(2)
                 
@@ -315,6 +385,9 @@ def main():
                             tm.recalculate_daily_values_from_date(pd.to_datetime(selected_trans['transaction_date']).date())
                             
                             st.success("Transaction deleted successfully!")
+                            # Clear any editing session state
+                            if 'editing_transaction' in st.session_state:
+                                del st.session_state.editing_transaction
                             st.rerun()
                             
                         except Exception as e:
@@ -329,7 +402,16 @@ def main():
             if 'editing_transaction' in st.session_state:
                 st.subheader("Edit Transaction")
                 edit_trans_id = st.session_state.editing_transaction
-                edit_trans = transactions[transactions['transaction_id'] == edit_trans_id].iloc[0]
+                
+                # Safety check: ensure the transaction still exists
+                edit_trans_filter = transactions[transactions['transaction_id'] == edit_trans_id]
+                if edit_trans_filter.empty:
+                    st.error("Transaction not found. It may have been deleted.")
+                    del st.session_state.editing_transaction
+                    st.rerun()
+                    return
+                
+                edit_trans = edit_trans_filter.iloc[0]
                 
                 # Get product info
                 product_info = tm.get_product_info(edit_trans['product_id'])

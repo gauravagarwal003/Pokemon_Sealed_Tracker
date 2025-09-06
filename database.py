@@ -140,22 +140,27 @@ class TransactionDatabase:
             # Remove from portfolio if no transactions
             cursor.execute("DELETE FROM portfolio_holdings WHERE product_id = ?", (product_id,))
         else:
-            # Calculate totals
+            # Calculate totals - ensure proper numeric types
             bought = transactions[transactions['transaction_type'] == 'BUY']
             sold = transactions[transactions['transaction_type'] == 'SELL']
             opened = transactions[transactions['transaction_type'] == 'OPEN']
             
-            total_bought = bought['quantity'].sum() if not bought.empty else 0
-            total_sold = sold['quantity'].sum() if not sold.empty else 0
-            total_opened = opened['quantity'].sum() if not opened.empty else 0
+            total_bought = int(bought['quantity'].sum()) if not bought.empty else 0
+            total_sold = int(sold['quantity'].sum()) if not sold.empty else 0
+            total_opened = int(opened['quantity'].sum()) if not opened.empty else 0
             current_quantity = total_bought - total_sold - total_opened
             
-            # Calculate cost basis (only from buys, reduced by sells)
-            buy_cost = (bought['quantity'] * bought['price_per_unit']).sum() if not bought.empty else 0
-            sell_revenue = (sold['quantity'] * sold['price_per_unit']).sum() if not sold.empty else 0
-            total_cost_basis = buy_cost - sell_revenue
+            # Calculate cost basis using average cost method
+            # Cost basis = remaining quantity × average purchase price
+            buy_cost = float((bought['quantity'] * bought['price_per_unit']).sum()) if not bought.empty else 0.0
+            total_bought_qty = int(bought['quantity'].sum()) if not bought.empty else 0
             
-            avg_cost = total_cost_basis / current_quantity if current_quantity > 0 else 0
+            # Calculate average purchase cost (this stays constant regardless of sells/opens)
+            avg_purchase_cost = buy_cost / total_bought_qty if total_bought_qty > 0 else 0.0
+            
+            # Cost basis is only for the items you still own
+            total_cost_basis = current_quantity * avg_purchase_cost if current_quantity > 0 else 0.0
+            avg_cost = avg_purchase_cost  # This is your true average cost per unit
             
             # Upsert portfolio holdings
             cursor.execute('''
