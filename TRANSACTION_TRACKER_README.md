@@ -126,7 +126,7 @@ The transaction tracker integrates seamlessly with your current setup:
 ## File Structure
 
 ```
-/PokemonSealedPriceTeacker/
+/Pokemon_Sealed_Tracker/
 ├── sealed_products_tracking.csv     # Existing product data
 ├── daily_prices/                    # Existing price data
 ├── pokemon_transactions.db          # New transaction database
