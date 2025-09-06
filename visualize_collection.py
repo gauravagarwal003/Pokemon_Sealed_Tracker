@@ -110,8 +110,12 @@ def calculate_collection_value(purchases_df, product_df, available_dates):
                         sold_revenue += purchase['sell_price'] * quantity
                 # Skip sold items for market value calculation
                 continue
+            
+            # Skip opened items for market value calculation (opened items have no resale value)
+            if 'status' in purchase and purchase['status'] == 'OPENED':
+                continue
                 
-            # Get market price for this product
+            # Get market price for this product (only for sealed items)
             product_price = daily_prices[daily_prices['productId'] == product_id]
             if not product_price.empty and pd.notna(product_price['marketPrice'].iloc[0]):
                 market_price = product_price['marketPrice'].iloc[0]
@@ -168,10 +172,14 @@ def visualize_collection_value(daily_values):
                      where=((daily_values['collection_value'] + daily_values['sold_revenue']) < daily_values['spent_to_date']),
                      color='red', alpha=0.3, label='Loss')
     
-    plt.title('Pokémon Sealed Collection Value Over Time (Including Sold Items)', fontsize=16)
+    plt.title('Pokémon Sealed Collection Value Over Time (Sealed Items Only)', fontsize=16)
     plt.ylabel('USD ($)', fontsize=14)
     plt.grid(True, alpha=0.3)
     plt.legend(fontsize=12)
+    
+    # Add note about opened items
+    plt.figtext(0.02, 0.02, 'Note: Collection value includes only sealed items. Opened items are excluded.', 
+                fontsize=10, style='italic')
     
     # Format the x-axis
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))

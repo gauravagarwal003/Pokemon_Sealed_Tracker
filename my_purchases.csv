@@ -1,58 +1,59 @@
-product_id,product_name,quantity,purchase_price,dateReceived
-565630,Surging Sparks Elite Trainer Box,3,27.29,2024-11-12
-493974,Paldea Evolved Elite Trainer Box,1,27.34,2025-11-17
-522701,151 Mini Tin Electabuzz and Magnemites,1,9.99,2024-11-19
-593355,Prismatic Evolutions Elite Trainer Box,1,28.49,2024-11-19
-527562,Crown Zenith Booster Bundle,1,19.6,2024-11-24
-277335,Lost Origin Elite Trainer Box,3,15.63,2024-11-25
-256138,Brilliant Stars Elite Trainer Box,1,15.63,2024-11-25
-543843,Twilight Masquerade Booster Pack,1,4.92,2024-12-11
-502007,151 Zapdos ex Collection,2,23.03,2024-12-17
-528771,Paldean Fates Booster Bundle,1,29.03,2024-12-24
-593450,Prismatic Evolutions Tech Sticker Collection Sylveon,1,15.78,2025-01-02
-593451,Prismatic Evolutions Tech Sticker Collection Glaceon,1,15.78,2025-01-02
-496914,Paldea Evolved Booster Bundle,1,27.21,2025-01-07
-493976,Paldea Evolved Booster Pack,1,4.84,2025-01-10
-283388,Silver Tempest Booster Pack,1,1.55,2025-01-13
-557345,Stellar Crown Booster Bundle,1,19.86,2025-01-13
-502007,151 Zapdos ex Collection,1,18.71,2025-01-13
-527562,Crown Zenith Booster Bundle,1,23.55,2025-01-16
-609597,Blooming Waters Premium Collection,2,49.6,2025-01-20
-502000,151 Booster Bundle,2,30.8,2025-01-23
-552998,Shrouded Fable Pokemon Center Elite Trainer Box Exclusive,1,65.69,2025-01-24
-502000,151 Booster Bundle,3,30.65,2025-01-27
-593466,Prismatic Evolutions Surprise Box,1,22.65,2025-02-06
-600518,Prismatic Evolutions Booster Bundle,1,29.32,2025-02-10
-610929,Journey Together Pokemon Center Elite Trainer Box Exclusive,1,65.69,2025-02-12
-557345,Stellar Crown Booster Bundle,1,26.32,2025-02-15
-502000,151 Booster Bundle,1,23.91,2025-02-18
-265529,Astral Radiance Build and Battle Box,1,21.88,2025-02-21
-532841,Temporal Forces Booster Pack,1,4.92,2025-02-21
-543843,Twilight Masquerade Booster Pack,1,2.66,2025-02-23
-606881,Prismatic Evolutions Accessory Pouch Special Collection,1,24.08,2025-02-27
-565629,Surging Sparks Booster Bundle,1,18.71,2025-03-03
-609597,Blooming Waters Premium Collection,2,55.12,2025-03-03
-277568,Infernape V Box,1,20.94,2025-03-04
-502001,151 Poster Collection,1,5.48,2025-04-02
-528771,Paldean Fates Booster Bundle,1,24.13,2025-04-02
-281981,Hidden Potential Tin Rotom V,1,27.42,2025-04-10
-610934,Journey Together Sleeved Booster Pack,2,5.52,2025-04-22
-625684,Destined Rivals 3 Pack Blister Zebstrika,1,13.31,2025-04-30
-593466,Prismatic Evolutions Surprise Box,2,25.23,2025-05-01
-593355,Prismatic Evolutions Elite Trainer Box,1,60.35,2025-05-03
-593355,Prismatic Evolutions Elite Trainer Box,3,60.35,2025-05-03
-593355,Prismatic Evolutions Elite Trainer Box,1,50.35,2025-05-08
-600518,Prismatic Evolutions Booster Bundle,2,29.57,2025-05-08
-630687,Black Bolt Pokemon Center Elite Trainer Box Exclusive,1,65.84,2025-05-13
-630688,White Flare Pokemon Center Elite Trainer Box Exclusive,1,65.84,2025-05-27
-593355,Prismatic Evolutions Elite Trainer Box,1,60.35,2025-05-16
-609597,Blooming Waters Premium Collection,1,63.19,2025-05-30
-593355,Prismatic Evolutions Elite Trainer Box,2,45.1,2025-06-03
-600518,Prismatic Evolutions Booster Bundle,2,22.14,2025-06-03
-625670,Destined Rivals Booster Bundle,1,28.8,2025-06-04
-630431,Black Bolt Booster Bundle,1,29.71,2025-06-17
-630696,White Flare Booster Bundle,1,29.71,2025-06-17
-625670,Destined Rivals Booster Bundle,3,29.95,2025-06-25
-625688,Destined Rivals Premium Checklane Blister Togekiss,2,6.6,2025-06-30
-624683,Destined Rivals Booster Pack,2,5.0,2025-08-05
-565604,Surging Sparks Booster Pack,1,5.0,2025-08-05
+product_id,product_name,quantity,purchase_price,dateReceived,status
+565630,Surging Sparks Elite Trainer Box,2,27.29,2024-11-12,
+493974,Paldea Evolved Elite Trainer Box,1,27.34,2025-11-17,
+522701,151 Mini Tin Electabuzz and Magnemites,1,9.99,2024-11-19,
+593355,Prismatic Evolutions Elite Trainer Box,1,28.49,2024-11-19,
+527562,Crown Zenith Booster Bundle,1,19.6,2024-11-24,
+277335,Lost Origin Elite Trainer Box,3,15.63,2024-11-25,
+256138,Brilliant Stars Elite Trainer Box,1,15.63,2024-11-25,
+543843,Twilight Masquerade Booster Pack,1,4.92,2024-12-11,
+502007,151 Zapdos ex Collection,2,23.03,2024-12-17,
+528771,Paldean Fates Booster Bundle,1,29.03,2024-12-24,
+593450,Prismatic Evolutions Tech Sticker Collection Sylveon,1,15.78,2025-01-02,
+593451,Prismatic Evolutions Tech Sticker Collection Glaceon,1,15.78,2025-01-02,
+496914,Paldea Evolved Booster Bundle,1,27.21,2025-01-07,
+493976,Paldea Evolved Booster Pack,1,4.84,2025-01-10,
+283388,Silver Tempest Booster Pack,1,1.55,2025-01-13,
+557345,Stellar Crown Booster Bundle,1,19.86,2025-01-13,
+502007,151 Zapdos ex Collection,1,18.71,2025-01-13,
+527562,Crown Zenith Booster Bundle,1,23.55,2025-01-16,
+609597,Blooming Waters Premium Collection,2,49.6,2025-01-20,
+502000,151 Booster Bundle,2,30.8,2025-01-23,
+552998,Shrouded Fable Pokemon Center Elite Trainer Box Exclusive,1,65.69,2025-01-24,
+502000,151 Booster Bundle,3,30.65,2025-01-27,
+593466,Prismatic Evolutions Surprise Box,1,22.65,2025-02-06,
+600518,Prismatic Evolutions Booster Bundle,1,29.32,2025-02-10,
+610929,Journey Together Pokemon Center Elite Trainer Box Exclusive,1,65.69,2025-02-12,
+557345,Stellar Crown Booster Bundle,1,26.32,2025-02-15,
+502000,151 Booster Bundle,1,23.91,2025-02-18,
+265529,Astral Radiance Build and Battle Box,1,21.88,2025-02-21,
+532841,Temporal Forces Booster Pack,1,4.92,2025-02-21,
+543843,Twilight Masquerade Booster Pack,1,2.66,2025-02-23,
+606881,Prismatic Evolutions Accessory Pouch Special Collection,1,24.08,2025-02-27,
+565629,Surging Sparks Booster Bundle,1,18.71,2025-03-03,
+609597,Blooming Waters Premium Collection,2,55.12,2025-03-03,
+277568,Infernape V Box,1,20.94,2025-03-04,
+502001,151 Poster Collection,1,5.48,2025-04-02,
+528771,Paldean Fates Booster Bundle,1,24.13,2025-04-02,
+281981,Hidden Potential Tin Rotom V,1,27.42,2025-04-10,
+610934,Journey Together Sleeved Booster Pack,2,5.52,2025-04-22,
+625684,Destined Rivals 3 Pack Blister Zebstrika,1,13.31,2025-04-30,
+593466,Prismatic Evolutions Surprise Box,2,25.23,2025-05-01,
+593355,Prismatic Evolutions Elite Trainer Box,1,60.35,2025-05-03,
+593355,Prismatic Evolutions Elite Trainer Box,3,60.35,2025-05-03,
+593355,Prismatic Evolutions Elite Trainer Box,1,50.35,2025-05-08,
+600518,Prismatic Evolutions Booster Bundle,2,29.57,2025-05-08,
+630687,Black Bolt Pokemon Center Elite Trainer Box Exclusive,1,65.84,2025-05-13,
+630688,White Flare Pokemon Center Elite Trainer Box Exclusive,1,65.84,2025-05-27,
+593355,Prismatic Evolutions Elite Trainer Box,1,60.35,2025-05-16,
+609597,Blooming Waters Premium Collection,1,63.19,2025-05-30,
+593355,Prismatic Evolutions Elite Trainer Box,2,45.1,2025-06-03,
+600518,Prismatic Evolutions Booster Bundle,2,22.14,2025-06-03,
+625670,Destined Rivals Booster Bundle,1,28.8,2025-06-04,
+630431,Black Bolt Booster Bundle,1,29.71,2025-06-17,
+630696,White Flare Booster Bundle,1,29.71,2025-06-17,
+625670,Destined Rivals Booster Bundle,3,29.95,2025-06-25,
+625688,Destined Rivals Premium Checklane Blister Togekiss,2,6.6,2025-06-30,
+624683,Destined Rivals Booster Pack,2,5.0,2025-08-05,
+565604,Surging Sparks Booster Pack,1,5.0,2025-08-05,
+565630,Surging Sparks Elite Trainer Box,1,27.29,2024-11-12,OPENED
