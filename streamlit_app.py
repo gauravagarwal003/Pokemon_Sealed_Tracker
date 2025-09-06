@@ -270,28 +270,6 @@ def main():
             for col in numeric_cols:
                 display_holdings[col] = pd.to_numeric(display_holdings[col], errors='coerce')
             
-            # Add sorting controls
-            sort_col1, sort_col2 = st.columns(2)
-            with sort_col1:
-                sort_by = st.selectbox(
-                    "Sort by:",
-                    options=['product_name', 'current_quantity', 'average_cost_per_unit', 'total_cost_basis', 'current_price_per_unit', 'total_current_value'],
-                    format_func=lambda x: {
-                        'product_name': 'Product Name',
-                        'current_quantity': 'Quantity',
-                        'average_cost_per_unit': 'Avg Cost/Unit',
-                        'total_cost_basis': 'Total Cost Basis',
-                        'current_price_per_unit': 'Current Price/Unit',
-                        'total_current_value': 'Total Current Value'
-                    }[x],
-                    index=5  # Default to Total Current Value
-                )
-            with sort_col2:
-                sort_ascending = st.selectbox("Order:", options=[False, True], format_func=lambda x: "Descending" if not x else "Ascending", index=0)
-            
-            # Apply sorting
-            display_holdings = display_holdings.sort_values(by=sort_by, ascending=sort_ascending)
-            
             display_holdings.columns = [
                 'Product Name', 'Quantity', 'Avg Cost/Unit', 'Total Cost Basis', 
                 'Current Price/Unit', 'Total Current Value'
