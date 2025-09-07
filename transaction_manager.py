@@ -3,6 +3,13 @@ from datetime import datetime, date
 import glob
 from pathlib import Path
 from database import TransactionDatabase
+from decimal import Decimal, ROUND_HALF_UP
+
+def round_price(price):
+    """Round price to 2 decimal places using proper decimal handling"""
+    if price is None:
+        return None
+    return float(Decimal(str(price)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
 
 class TransactionManager:
     def __init__(self, sealed_products_csv="sealed_products_tracking.csv", 
@@ -60,7 +67,7 @@ class TransactionManager:
         return current_quantity >= quantity
     
     def add_transaction(self, product_id, transaction_type, quantity, input_date, 
-                       price_per_unit=None, notes=""):
+                       price_per_unit=None, notes="", purchase_method=None, purchase_location=None):
         """Add a new transaction with validation"""
         # Validate product exists
         product_info = self.get_product_info(product_id)
@@ -82,8 +89,19 @@ class TransactionManager:
         if transaction_type in ['BUY', 'SELL'] and price_per_unit is None:
             raise ValueError(f"Price per unit is required for {transaction_type} transactions")
         
+        # Round price to 2 decimal places
+        if price_per_unit is not None:
+            price_per_unit = round_price(price_per_unit)
+        
         if transaction_type == 'OPEN' and price_per_unit is not None:
             price_per_unit = None  # Force None for OPEN transactions
+        
+        # Validate purchase fields for BUY transactions
+        if transaction_type == 'BUY':
+            if purchase_method is None:
+                raise ValueError("Purchase method is required for BUY transactions")
+            if purchase_location is None or purchase_location.strip() == "":
+                raise ValueError("Purchase location is required for BUY transactions")
         
         # Add transaction to database
         transaction_id = self.db.add_transaction(
@@ -95,7 +113,9 @@ class TransactionManager:
             transaction_date=transaction_date,
             input_date=pd.to_datetime(input_date).date(),
             date_adjusted=date_adjusted,
-            notes=notes
+            notes=notes,
+            purchase_method=purchase_method,
+            purchase_location=purchase_location
         )
         
         # Update portfolio holdings

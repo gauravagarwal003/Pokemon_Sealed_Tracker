@@ -2,6 +2,13 @@ import sqlite3
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
+from decimal import Decimal, ROUND_HALF_UP
+
+def round_price(price):
+    """Round price to 2 decimal places using proper decimal handling"""
+    if price is None:
+        return None
+    return float(Decimal(str(price)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
 
 class TransactionDatabase:
     def __init__(self, db_path="pokemon_transactions.db"):
@@ -28,6 +35,8 @@ class TransactionDatabase:
                 date_adjusted BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 notes TEXT,
+                purchase_method TEXT CHECK (purchase_method IN ('online', 'in_person')),
+                purchase_location TEXT,
                 is_deleted BOOLEAN DEFAULT FALSE
             )
         ''')
@@ -65,14 +74,19 @@ class TransactionDatabase:
         return sqlite3.connect(self.db_path)
     
     def add_transaction(self, product_id, product_name, transaction_type, quantity, 
-                       price_per_unit, transaction_date, input_date, date_adjusted, notes=""):
+                       price_per_unit, transaction_date, input_date, date_adjusted, notes="",
+                       purchase_method=None, purchase_location=None):
         """Add a new transaction"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
+        # Round price to 2 decimal places
+        if price_per_unit is not None:
+            price_per_unit = round_price(price_per_unit)
+        
         total_amount = None
         if price_per_unit is not None:
-            total_amount = quantity * price_per_unit
+            total_amount = round_price(quantity * price_per_unit)
         
         # Convert date objects to strings for SQLite
         transaction_date_str = transaction_date.strftime('%Y-%m-%d') if hasattr(transaction_date, 'strftime') else str(transaction_date)
@@ -81,10 +95,12 @@ class TransactionDatabase:
         cursor.execute('''
             INSERT INTO transactions 
             (product_id, product_name, transaction_type, quantity, price_per_unit, 
-             total_amount, transaction_date, input_date, date_adjusted, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             total_amount, transaction_date, input_date, date_adjusted, notes,
+             purchase_method, purchase_location)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (product_id, product_name, transaction_type, quantity, price_per_unit,
-              total_amount, transaction_date_str, input_date_str, date_adjusted, notes))
+              total_amount, transaction_date_str, input_date_str, date_adjusted, notes,
+              purchase_method, purchase_location))
         
         transaction_id = cursor.lastrowid
         conn.commit()
@@ -157,9 +173,11 @@ class TransactionDatabase:
             
             # Calculate average purchase cost (this stays constant regardless of sells/opens)
             avg_purchase_cost = buy_cost / total_bought_qty if total_bought_qty > 0 else 0.0
+            avg_purchase_cost = round_price(avg_purchase_cost)
             
             # Cost basis is only for the items you still own
             total_cost_basis = current_quantity * avg_purchase_cost if current_quantity > 0 else 0.0
+            total_cost_basis = round_price(total_cost_basis)
             avg_cost = avg_purchase_cost  # This is your true average cost per unit
             
             # Upsert portfolio holdings
