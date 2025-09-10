@@ -33,10 +33,10 @@ def collect_historical_data():
     # Create directory for daily price files
     if not os.path.exists('daily_prices'):
         os.makedirs('daily_prices')
-    
-    # Generate date range for missing dates (2025-08-21 to 2025-09-02)
-    start_date = datetime(2025, 8, 21)
-    end_date = datetime(2025, 9, 2)
+
+    # Generate date range for missing dates (2025-09-21 to 2025-09-02)
+    start_date = datetime(2025, 9, 6)
+    end_date = datetime(2025, 9, 6)
     
     current_date = start_date
     total_days = (end_date - start_date).days + 1

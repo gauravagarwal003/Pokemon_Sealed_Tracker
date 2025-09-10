@@ -28,6 +28,12 @@
         .gradient-bg {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
+        /* Move Plotly modebar to top left */
+        .js-plotly-plot .modebar {
+            left: 0 !important;
+            right: auto !important;
+            justify-content: flex-start !important;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -278,7 +284,8 @@
             <!-- Portfolio Overview Tab -->
             <div v-if="activeTab === 'portfolio'" class="space-y-6">
                 <!-- Portfolio Metrics -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Portfolio Summary Cards: 4 columns on desktop -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div class="bg-white rounded-xl shadow-md p-6 card-hover transition-all duration-200">
                         <div class="flex items-center justify-between">
                             <div>
@@ -311,6 +318,17 @@
                             </div>
                             <div class="bg-purple-100 p-3 rounded-full">
                                 <i class="fas fa-dollar-sign text-purple-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-md p-6 card-hover transition-all duration-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Total Value</p>
+                                <p class="text-3xl font-bold text-green-700">${{ formatCurrency(portfolioSummary.current_market_value || 0) }}</p>
+                            </div>
+                            <div class="bg-yellow-100 p-3 rounded-full">
+                                <i class="fas fa-coins text-yellow-600 text-xl"></i>
                             </div>
                         </div>
                     </div>
