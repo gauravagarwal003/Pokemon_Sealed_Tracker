@@ -14,8 +14,9 @@ def collect_historical_data():
     
     # Load our sealed product IDs
     try:
+        # Load sealed product ids as strings to keep types consistent
         with open('sealed_product_ids.txt', 'r') as f:
-            sealed_product_ids = set(int(line.strip()) for line in f if line.strip())
+            sealed_product_ids = set(line.strip() for line in f if line.strip())
         print(f"Loaded {len(sealed_product_ids)} sealed product IDs")
     except FileNotFoundError:
         print("Error: sealed_product_ids.txt not found. Please run product_discovery.py first.")
@@ -35,8 +36,8 @@ def collect_historical_data():
         os.makedirs('daily_prices')
 
     # Generate date range for missing dates (2025-09-21 to 2025-09-02)
-    start_date = datetime(2025, 9, 6)
-    end_date = datetime(2025, 9, 6)
+    start_date = datetime(2025, 9, 10)
+    end_date = datetime(2025, 9, 14)
     
     current_date = start_date
     total_days = (end_date - start_date).days + 1
@@ -145,7 +146,8 @@ def process_single_date(date_str, sealed_product_ids, set_codes):
                             market_price = product.get('marketPrice')
                             
                             # Check if this is one of our sealed products
-                            if product_id in sealed_product_ids:
+                            # Compare as strings
+                            if str(product_id) in sealed_product_ids:
                                 # Convert to float, handle NaN/empty values
                                 if market_price is not None and market_price != '':
                                     try:
@@ -156,7 +158,7 @@ def process_single_date(date_str, sealed_product_ids, set_codes):
                                     market_price = None
                                 
                                 price_records.append({
-                                    'productId': int(product_id),
+                                    'productId': str(product_id),
                                     'marketPrice': market_price
                                 })
                                 products_found += 1
@@ -174,8 +176,8 @@ def process_single_date(date_str, sealed_product_ids, set_codes):
             # Remove duplicates (same product might appear multiple times)
             price_df = price_df.drop_duplicates(subset=['productId'])
             
-            # Ensure productId is integer type
-            price_df['productId'] = price_df['productId'].astype('int32')
+            # Store productId as string for consistent comparisons
+            price_df['productId'] = price_df['productId'].astype(str)
             
             # Save to Parquet
             parquet_filename = f"daily_prices/market_prices_{date_str}.parquet"
