@@ -187,6 +187,24 @@ class PortfolioRecompiler:
         if not available_dates:
             print("No price data available")
             return
+
+        # Determine the earliest transaction date to start the portfolio
+        try:
+            transactions_df['transaction_date'] = pd.to_datetime(transactions_df['transaction_date'])
+            earliest_tx_date = transactions_df['transaction_date'].min().date()
+        except Exception:
+            earliest_tx_date = None
+
+        # Only use available price dates on or after the first transaction date
+        if earliest_tx_date:
+            available_dates = [d for d in available_dates if d >= earliest_tx_date]
+            # If there is no price file exactly on the earliest transaction date, still include that date
+            if earliest_tx_date not in available_dates:
+                # Insert the earliest transaction date at the beginning so the portfolio starts there
+                available_dates.insert(0, earliest_tx_date)
+            if not available_dates:
+                # If filtering somehow removed all dates, fall back to all available dates
+                available_dates = self.get_available_price_dates()
         
         conn = self.get_connection()
         cursor = conn.cursor()
