@@ -351,38 +351,62 @@
                     </h3>
                     
                     <div v-if="holdings.length > 0" class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="border-b border-gray-200">
-                                    <th class="text-left py-3 px-2 font-medium text-gray-600">Product Name</th>
-                                    <th class="text-right py-3 px-2 font-medium text-gray-600">Quantity</th>
-                                    <th class="text-right py-3 px-2 font-medium text-gray-600">Avg Cost/Unit</th>
-                                    <th class="text-right py-3 px-2 font-medium text-gray-600">Cost Basis</th>
-                                    <th class="text-right py-3 px-2 font-medium text-gray-600">Current Price</th>
-                                    <th class="text-right py-3 px-2 font-medium text-gray-600">Current Value</th>
-                                    <th class="text-right py-3 px-2 font-medium text-gray-600">P&L</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="holding in holdings" :key="holding.product_name" class="border-b border-gray-100 hover:bg-gray-50">
-                                    <td class="py-3 px-2 font-medium text-gray-900">{{ holding.product_name }}</td>
-                                    <td class="py-3 px-2 text-right">{{ holding.current_quantity }}</td>
-                                    <td class="py-3 px-2 text-right">${{ formatCurrency(holding.average_cost_per_unit) }}</td>
-                                    <td class="py-3 px-2 text-right">${{ formatCurrency(holding.total_cost_basis) }}</td>
-                                    <td class="py-3 px-2 text-right">${{ formatCurrency(holding.current_price_per_unit) }}</td>
-                                    <td class="py-3 px-2 text-right">${{ formatCurrency(holding.total_current_value) }}</td>
-                                    <td class="py-3 px-2 text-right" 
-                                        :class="[
-                                            holding.total_current_value - holding.total_cost_basis >= 0 
-                                                ? 'text-green-600' 
-                                                : 'text-red-600'
-                                        ]">
-                                        {{ holding.total_current_value - holding.total_cost_basis >= 0 ? '+' : '' }}${{ formatCurrency(holding.total_current_value - holding.total_cost_basis) }}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-gray-200">
+                                        <th @click="sortBy('product_name')" class="cursor-pointer text-left py-3 px-2 font-medium text-gray-600">
+                                            Product Name
+                                            <!-- Baseline faint sort icon (inactive) -->
+                                            <i class="fa-fw fas fa-sort text-gray-300 ml-2" aria-hidden="true" v-if="sortKey !== 'product_name'"></i>
+                                            <!-- Active colored sort icon -->
+                                            <i v-if="sortKey === 'product_name'" :class="['fa-fw', sortAsc ? 'fas fa-sort-up text-purple-600' : 'fas fa-sort-down text-red-600', 'ml-2', 'transition-colors']" aria-hidden="true"></i>
+                                        </th>
+                                        <th @click="sortBy('current_quantity')" class="cursor-pointer text-right py-3 px-2 font-medium text-gray-600">Quantity
+                                            <i class="fa-fw fas fa-sort text-gray-300 ml-2" aria-hidden="true" v-if="sortKey !== 'current_quantity'"></i>
+                                            <i v-if="sortKey === 'current_quantity'" :class="['fa-fw', sortAsc ? 'fas fa-sort-up text-purple-600' : 'fas fa-sort-down text-red-600', 'ml-2', 'transition-colors']" aria-hidden="true"></i>
+                                        </th>
+                                        <th @click="sortBy('average_cost_per_unit')" class="cursor-pointer text-right py-3 px-2 font-medium text-gray-600">Avg Cost/Unit
+                                            <i class="fa-fw fas fa-sort text-gray-300 ml-2" aria-hidden="true" v-if="sortKey !== 'average_cost_per_unit'"></i>
+                                            <i v-if="sortKey === 'average_cost_per_unit'" :class="['fa-fw', sortAsc ? 'fas fa-sort-up text-purple-600' : 'fas fa-sort-down text-red-600', 'ml-2', 'transition-colors']" aria-hidden="true"></i>
+                                        </th>
+                                        <th @click="sortBy('total_cost_basis')" class="cursor-pointer text-right py-3 px-2 font-medium text-gray-600">Cost Basis
+                                            <i class="fa-fw fas fa-sort text-gray-300 ml-2" aria-hidden="true" v-if="sortKey !== 'total_cost_basis'"></i>
+                                            <i v-if="sortKey === 'total_cost_basis'" :class="['fa-fw', sortAsc ? 'fas fa-sort-up text-purple-600' : 'fas fa-sort-down text-red-600', 'ml-2', 'transition-colors']" aria-hidden="true"></i>
+                                        </th>
+                                        <th @click="sortBy('current_price_per_unit')" class="cursor-pointer text-right py-3 px-2 font-medium text-gray-600">Current Price
+                                            <i class="fa-fw fas fa-sort text-gray-300 ml-2" aria-hidden="true" v-if="sortKey !== 'current_price_per_unit'"></i>
+                                            <i v-if="sortKey === 'current_price_per_unit'" :class="['fa-fw', sortAsc ? 'fas fa-sort-up text-purple-600' : 'fas fa-sort-down text-red-600', 'ml-2', 'transition-colors']" aria-hidden="true"></i>
+                                        </th>
+                                        <th @click="sortBy('total_current_value')" class="cursor-pointer text-right py-3 px-2 font-medium text-gray-600">Current Value
+                                            <i class="fa-fw fas fa-sort text-gray-300 ml-2" aria-hidden="true" v-if="sortKey !== 'total_current_value'"></i>
+                                            <i v-if="sortKey === 'total_current_value'" :class="['fa-fw', sortAsc ? 'fas fa-sort-up text-purple-600' : 'fas fa-sort-down text-red-600', 'ml-2', 'transition-colors']" aria-hidden="true"></i>
+                                        </th>
+                                        <th @click="sortBy('pnl')" class="cursor-pointer text-right py-3 px-2 font-medium text-gray-600">P&L
+                                            <i class="fa-fw fas fa-sort text-gray-300 ml-2" aria-hidden="true" v-if="sortKey !== 'pnl'"></i>
+                                            <i v-if="sortKey === 'pnl'" :class="['fa-fw', sortAsc ? 'fas fa-sort-up text-purple-600' : 'fas fa-sort-down text-red-600', 'ml-2', 'transition-colors']" aria-hidden="true"></i>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="holding in sortedHoldings" :key="holding.product_name" class="border-b border-gray-100 hover:bg-gray-50">
+                                        <td class="py-3 px-2 font-medium text-gray-900">{{ holding.product_name }}</td>
+                                        <td class="py-3 px-2 text-right">{{ holding.current_quantity }}</td>
+                                        <td class="py-3 px-2 text-right">${{ formatCurrency(holding.average_cost_per_unit) }}</td>
+                                        <td class="py-3 px-2 text-right">${{ formatCurrency(holding.total_cost_basis) }}</td>
+                                        <td class="py-3 px-2 text-right">${{ formatCurrency(holding.current_price_per_unit) }}</td>
+                                        <td class="py-3 px-2 text-right">${{ formatCurrency(holding.total_current_value) }}</td>
+                                        <td class="py-3 px-2 text-right" 
+                                            :class="[
+                                                holding.total_current_value - holding.total_cost_basis >= 0 
+                                                    ? 'text-green-600' 
+                                                    : 'text-red-600'
+                                            ]">
+                                            {{ holding.total_current_value - holding.total_cost_basis >= 0 ? '+' : '' }}${{ formatCurrency(holding.total_current_value - holding.total_cost_basis) }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     <div v-else class="text-center py-8 text-gray-500">
                         <i class="fas fa-inbox text-4xl mb-4"></i>
                         <p>No holdings yet. Add some transactions to see your portfolio.</p>
@@ -513,11 +537,50 @@
                     message: null,
                     portfolioSummary: {},
                     holdings: [],
+                    // sorting state for holdings table
+                    sortKey: 'product_name',
+                    sortAsc: true,
                     transactions: [],
                     transactionFilter: 'All'
                 }
             },
             computed: {
+                sortedHoldings() {
+                    if (!this.holdings || this.holdings.length === 0) return [];
+
+                    // create a shallow copy to avoid mutating original array
+                    const arr = this.holdings.map(h => ({ ...h }));
+
+                    // compute P&L property for sorting
+                    arr.forEach(h => { h.pnl = (parseFloat(h.total_current_value) || 0) - (parseFloat(h.total_cost_basis) || 0); });
+
+                    const key = this.sortKey;
+
+                    arr.sort((a, b) => {
+                        let va = a[key];
+                        let vb = b[key];
+
+                        // normalize undefined/null
+                        if (va === undefined || va === null) va = '';
+                        if (vb === undefined || vb === null) vb = '';
+
+                        // try numeric compare first
+                        const na = parseFloat(va);
+                        const nb = parseFloat(vb);
+                        if (!isNaN(na) && !isNaN(nb)) {
+                            return this.sortAsc ? na - nb : nb - na;
+                        }
+
+                        // fallback to string compare
+                        const sa = String(va).toLowerCase();
+                        const sb = String(vb).toLowerCase();
+                        if (sa < sb) return this.sortAsc ? -1 : 1;
+                        if (sa > sb) return this.sortAsc ? 1 : -1;
+                        return 0;
+                    });
+
+                    return arr;
+                },
                 canSubmitTransaction() {
                     const baseValid = this.selectedProduct && this.newTransaction.quantity > 0;
                     
@@ -560,6 +623,14 @@
                 }
             },
             methods: {
+                sortBy(key) {
+                    if (this.sortKey === key) {
+                        this.sortAsc = !this.sortAsc;
+                    } else {
+                        this.sortKey = key;
+                        this.sortAsc = true;
+                    }
+                },
                 async searchProducts() {
                     if (!this.searchQuery || this.searchQuery.length < 2) {
                         this.searchResults = [];
