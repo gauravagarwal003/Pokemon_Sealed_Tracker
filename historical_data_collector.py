@@ -36,8 +36,8 @@ def collect_historical_data():
         os.makedirs('daily_prices')
 
     # Generate date range for missing dates (2025-09-21 to 2025-09-02)
-    start_date = datetime(2025, 9, 10)
-    end_date = datetime(2025, 9, 14)
+    start_date = datetime(2025, 9, 15)
+    end_date = datetime(2025, 9, 15)
     
     current_date = start_date
     total_days = (end_date - start_date).days + 1
