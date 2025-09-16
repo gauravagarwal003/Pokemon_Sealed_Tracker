@@ -2,8 +2,11 @@ name: Daily Portfolio Update
 
 on:
   schedule:
-    - cron: '0 4 * * *' # Runs every day at 6:00 UTC
+    - cron: '0 3 * * *' # Runs every day at 6:00 UTC
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   run-daily-scripts:
@@ -11,6 +14,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # allow pushing back to the repository
+          persist-credentials: true
+          # fetch full history so commits can be created on top of main
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -23,3 +31,20 @@ jobs:
         run: python daily_price_tracker.py
       - name: Run portfolio recompiler
         run: python portfolio_recompiler.py
+
+      - name: Commit generated parquet files
+        run: |
+          # Configure git user so commits aren't rejected
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Stage parquet files in daily_prices directory (adjust path if different)
+          git add daily_prices/*.parquet || true
+
+          # Only commit when there are staged changes
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update generated daily parquet files [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
