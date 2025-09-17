@@ -369,10 +369,6 @@
                                             <i class="fa-fw fas fa-sort text-gray-300 ml-2" aria-hidden="true" v-if="sortKey !== 'average_cost_per_unit'"></i>
                                             <i v-if="sortKey === 'average_cost_per_unit'" :class="['fa-fw', sortAsc ? 'fas fa-sort-up text-purple-600' : 'fas fa-sort-down text-red-600', 'ml-2', 'transition-colors']" aria-hidden="true"></i>
                                         </th>
-                                        <th @click="sortBy('total_cost_basis')" class="cursor-pointer text-right py-3 px-2 font-medium text-gray-600">Cost Basis
-                                            <i class="fa-fw fas fa-sort text-gray-300 ml-2" aria-hidden="true" v-if="sortKey !== 'total_cost_basis'"></i>
-                                            <i v-if="sortKey === 'total_cost_basis'" :class="['fa-fw', sortAsc ? 'fas fa-sort-up text-purple-600' : 'fas fa-sort-down text-red-600', 'ml-2', 'transition-colors']" aria-hidden="true"></i>
-                                        </th>
                                         <th @click="sortBy('current_price_per_unit')" class="cursor-pointer text-right py-3 px-2 font-medium text-gray-600">Current Price
                                             <i class="fa-fw fas fa-sort text-gray-300 ml-2" aria-hidden="true" v-if="sortKey !== 'current_price_per_unit'"></i>
                                             <i v-if="sortKey === 'current_price_per_unit'" :class="['fa-fw', sortAsc ? 'fas fa-sort-up text-purple-600' : 'fas fa-sort-down text-red-600', 'ml-2', 'transition-colors']" aria-hidden="true"></i>
@@ -392,7 +388,6 @@
                                         <td class="py-3 px-2 font-medium text-gray-900">{{ holding.product_name }}</td>
                                         <td class="py-3 px-2 text-right">{{ holding.current_quantity }}</td>
                                         <td class="py-3 px-2 text-right">${{ formatCurrency(holding.average_cost_per_unit) }}</td>
-                                        <td class="py-3 px-2 text-right">${{ formatCurrency(holding.total_cost_basis) }}</td>
                                         <td class="py-3 px-2 text-right">${{ formatCurrency(holding.current_price_per_unit) }}</td>
                                         <td class="py-3 px-2 text-right">${{ formatCurrency(holding.total_current_value) }}</td>
                                         <td class="py-3 px-2 text-right" 
