@@ -8,6 +8,7 @@ import pandas as pd
 import sqlite3
 import glob
 from datetime import datetime, date
+from datetime import timedelta
 from pathlib import Path
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -100,19 +101,30 @@ class PortfolioRecompiler:
             total_bought = int(bought['quantity'].sum()) if not bought.empty else 0
             total_sold = int(sold['quantity'].sum()) if not sold.empty else 0
             total_opened = int(opened['quantity'].sum()) if not opened.empty else 0
-            current_quantity = total_bought - total_sold - total_opened
-            
-            if current_quantity <= 0:
-                continue
-            
-            # Calculate cost basis using average cost method
+            # Treat OPEN as metadata only: it reduces sealed inventory (market value)
+            # but does not change how we compute the accounting-style cost basis here.
+            # The user requested the cost-basis to be computed as: SUM(BUY amounts) - SUM(SELL amounts)
+            # (i.e. bought_amt - sold_amt). This makes sale proceeds reduce the cost-basis directly.
+            cost_basis_quantity = total_bought - total_sold
+            sealed_quantity = total_bought - total_sold - total_opened
+
+            # Sum buy and sell amounts (use total_amount when present, otherwise quantity*price_per_unit)
+            buy_amount = float(bought['total_amount'].fillna(bought['quantity'] * bought['price_per_unit']).sum()) if not bought.empty else 0.0
+            sell_amount = float(sold['total_amount'].fillna(sold['quantity'] * sold['price_per_unit']).sum()) if not sold.empty else 0.0
+
+            # Also compute average purchase cost for display/market adjustments
             buy_cost = float((bought['quantity'] * bought['price_per_unit']).sum()) if not bought.empty else 0.0
             avg_purchase_cost = buy_cost / total_bought if total_bought > 0 else 0.0
-            total_cost_basis = current_quantity * avg_purchase_cost
+
+            # New cost-basis semantics: total_cost_basis = cumulative buys - cumulative sells
+            total_cost_basis = buy_amount - sell_amount
             
             holdings[product_id] = {
                 'product_name': product_name,
-                'current_quantity': current_quantity,
+                # quantity used for cost-basis calculations (OPEN does not affect this)
+                'cost_basis_quantity': cost_basis_quantity,
+                # quantity of sealed items remaining (used for market value calculation)
+                'sealed_quantity': sealed_quantity,
                 'total_cost_basis': round_price(total_cost_basis),
                 'average_cost_per_unit': round_price(avg_purchase_cost),
                 'total_bought': total_bought,
@@ -159,7 +171,7 @@ class PortfolioRecompiler:
                 int(holding['total_bought']),
                 int(holding['total_sold']),
                 int(holding['total_opened']),
-                int(holding['current_quantity']),
+                int(holding.get('sealed_quantity', 0)),
                 float(holding['total_cost_basis']) if holding['total_cost_basis'] is not None else 0.0,
                 float(holding['average_cost_per_unit']) if holding['average_cost_per_unit'] is not None else 0.0
             ))
@@ -184,6 +196,17 @@ class PortfolioRecompiler:
             return
         
         available_dates = self.get_available_price_dates()
+        # Also include any transaction dates so cost-basis changes (BUY/SELL)
+        # are reflected on the exact transaction date even when a price file
+        # for that date is not present.
+        try:
+            transactions_df['transaction_date'] = pd.to_datetime(transactions_df['transaction_date'])
+            tx_dates = sorted(set(transactions_df['transaction_date'].dt.date.tolist()))
+            # merge and dedupe
+            combined = sorted(set(available_dates + tx_dates))
+            available_dates = combined
+        except Exception:
+            pass
         if not available_dates:
             print("No price data available")
             return
@@ -210,25 +233,98 @@ class PortfolioRecompiler:
         cursor = conn.cursor()
         
         # Clear existing daily values
+        # Ensure cumulative_realized_pnl column exists (safe to try; ignore if already present)
+        try:
+            cursor.execute("ALTER TABLE daily_portfolio_value ADD COLUMN cumulative_realized_pnl REAL DEFAULT 0")
+        except Exception:
+            pass
+
         cursor.execute("DELETE FROM daily_portfolio_value")
+        # Create per_product_cost_history table if not exists (will store per-product cumulative amounts per date)
+        try:
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS per_product_cost_history (
+                    product_id TEXT,
+                    date TEXT,
+                    cumulative_buy_amt REAL,
+                    cumulative_sell_amt REAL,
+                    cumulative_cost_basis REAL,
+                    sealed_quantity INTEGER,
+                    cost_basis_quantity INTEGER,
+                    average_cost_per_unit REAL,
+                    total_cost_basis REAL,
+                    PRIMARY KEY (product_id, date)
+                )
+            ''')
+        except Exception:
+            pass
+        # Create index on product_id for faster lookups
+        try:
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_ppch_product_id ON per_product_cost_history (product_id)')
+        except Exception:
+            pass
+        # Clear existing per-product history
+        cursor.execute("DELETE FROM per_product_cost_history")
         
         processed_dates = 0
+        cumulative_realized_pnl = 0.0
         for calc_date in available_dates:
-            # Calculate holdings for this date
+            # Compute holdings up to and including calc_date. Our holdings' `total_cost_basis`
+            # already follow the requested semantics (buy_amount - sell_amount up to date),
+            # so we can just sum them. sealed_quantity is used for market value.
             holdings = self.calculate_holdings_at_date(transactions_df, calc_date)
-            
             total_cost_basis = 0.0
             total_market_value = 0.0
-            
             for product_id, holding in holdings.items():
-                # Add to cost basis
-                total_cost_basis += holding['total_cost_basis']
-                
-                # Get market price for this date
+                total_cost_basis += holding['total_cost_basis'] if holding['total_cost_basis'] is not None else 0.0
+                sealed_qty = holding.get('sealed_quantity', 0)
                 market_price = self.get_market_price(product_id, calc_date)
-                if market_price:
-                    product_market_value = holding['current_quantity'] * market_price
-                    total_market_value += product_market_value
+                if market_price and sealed_qty > 0:
+                    total_market_value += sealed_qty * market_price
+
+                # Persist per-product cumulative data for this date
+                try:
+                    # Compute cumulative buy/sell amounts from transactions up to calc_date
+                    txs = transactions_df[transactions_df['product_id'].astype(str) == str(product_id)]
+                    txs_upto = txs[txs['transaction_date'] <= pd.to_datetime(calc_date)]
+                    buy_amt = txs_upto[txs_upto['transaction_type']=='BUY']['total_amount'].fillna(txs_upto[txs_upto['transaction_type']=='BUY']['quantity'] * txs_upto[txs_upto['transaction_type']=='BUY']['price_per_unit']).sum()
+                    sell_amt = txs_upto[txs_upto['transaction_type']=='SELL']['total_amount'].fillna(txs_upto[txs_upto['transaction_type']=='SELL']['quantity'] * txs_upto[txs_upto['transaction_type']=='SELL']['price_per_unit']).sum()
+                    cumulative_cost_basis = float(buy_amt - sell_amt)
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO per_product_cost_history
+                        (product_id, date, cumulative_buy_amt, cumulative_sell_amt, cumulative_cost_basis, sealed_quantity, cost_basis_quantity, average_cost_per_unit, total_cost_basis)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        str(product_id), calc_date.strftime('%Y-%m-%d'), float(buy_amt), float(sell_amt), cumulative_cost_basis,
+                        int(sealed_qty), int(holding.get('cost_basis_quantity', 0)), float(holding.get('average_cost_per_unit') or 0.0), float(holding.get('total_cost_basis') or 0.0)
+                    ))
+                except Exception:
+                    pass
+
+            # Compute realized P&L for sells on this date (using prior average cost)
+            try:
+                sells_on_date = transactions_df[
+                    (transactions_df['transaction_date'] == pd.to_datetime(calc_date)) &
+                    (transactions_df['transaction_type'] == 'SELL') &
+                    (transactions_df['is_deleted'] == False)
+                ]
+                if not sells_on_date.empty:
+                    for _, sell in sells_on_date.iterrows():
+                        pid = sell['product_id']
+                        qty = float(sell['quantity'])
+                        proceeds = float(sell['total_amount']) if pd.notna(sell.get('total_amount')) else float(sell.get('quantity', 0) * sell.get('price_per_unit', 0.0))
+
+                        # Compute prior average purchase cost for this product up to and including this date
+                        prior_buys = transactions_df[(transactions_df['product_id'].astype(str) == str(pid)) & (transactions_df['transaction_type'] == 'BUY') & (transactions_df['transaction_date'] <= pd.to_datetime(calc_date))]
+                        total_buy_qty = prior_buys['quantity'].sum()
+                        total_buy_cost = (prior_buys['quantity'] * prior_buys['price_per_unit']).sum()
+                        avg_cost = float(total_buy_cost / total_buy_qty) if total_buy_qty and total_buy_qty > 0 else 0.0
+
+                        cost_removed = qty * avg_cost
+                        realized = proceeds - cost_removed
+                        cumulative_realized_pnl += realized
+            except Exception:
+                pass
             
             # Calculate unrealized P&L
             unrealized_pnl = total_market_value - total_cost_basis
@@ -236,13 +332,14 @@ class PortfolioRecompiler:
             # Insert daily value
             cursor.execute('''
                 INSERT INTO daily_portfolio_value 
-                (date, total_cost_basis, total_market_value, unrealized_pnl)
-                VALUES (?, ?, ?, ?)
+                (date, total_cost_basis, total_market_value, unrealized_pnl, cumulative_realized_pnl)
+                VALUES (?, ?, ?, ?, ?)
             ''', (
                 calc_date.strftime('%Y-%m-%d'),
                 round_price(total_cost_basis),
                 round_price(total_market_value),
-                round_price(unrealized_pnl)
+                round_price(unrealized_pnl),
+                round_price(cumulative_realized_pnl)
             ))
             
             processed_dates += 1

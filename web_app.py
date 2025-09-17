@@ -325,6 +325,11 @@ async def add_transaction(transaction: TransactionCreate):
         if transaction.price_per_unit is not None:
             total_amount = round_price(transaction.quantity * transaction.price_per_unit)
         
+        # For non-BUY transactions, clear purchase fields so DB CHECK constraint isn't violated
+        if transaction.transaction_type != 'BUY':
+            transaction.purchase_method = None
+            transaction.purchase_location = None
+
         # Add transaction to database
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -426,7 +431,11 @@ async def update_transaction(transaction_id: int, transaction: TransactionUpdate
         total_amount = None
         if transaction.price_per_unit is not None:
             total_amount = round_price(transaction.quantity * transaction.price_per_unit)
-        
+        # For non-BUY transactions, clear purchase fields so DB CHECK constraint isn't violated
+        if transaction.transaction_type != 'BUY':
+            transaction.purchase_method = None
+            transaction.purchase_location = None
+
         # Update transaction
         cursor.execute('''
             UPDATE transactions SET
@@ -512,7 +521,8 @@ async def get_portfolio_summary():
     
     # Get latest market value
     cursor.execute("""
-        SELECT total_market_value, unrealized_pnl
+        SELECT total_cost_basis, total_market_value, unrealized_pnl, 
+               COALESCE(cumulative_realized_pnl, 0) as cumulative_realized_pnl
         FROM daily_portfolio_value 
         ORDER BY date DESC 
         LIMIT 1
@@ -524,9 +534,12 @@ async def get_portfolio_summary():
     return {
         'total_products': holdings_result[0] or 0,
         'total_quantity': holdings_result[1] or 0,
-        'total_cost_basis': float(holdings_result[2] or 0),
-        'current_market_value': float(latest_value_result[0] if latest_value_result and latest_value_result[0] else 0),
-        'unrealized_pnl': float(latest_value_result[1] if latest_value_result and latest_value_result[1] else 0)
+        # Use the daily_portfolio_value latest total_cost_basis so the UI number
+        # matches the graph (which is drawn from daily_portfolio_value rows).
+        'total_cost_basis': float(latest_value_result[0] if latest_value_result and latest_value_result[0] is not None else (holdings_result[2] or 0)),
+        'current_market_value': float(latest_value_result[1] if latest_value_result and latest_value_result[1] is not None else 0),
+        'unrealized_pnl': float(latest_value_result[2] if latest_value_result and latest_value_result[2] is not None else 0),
+        'cumulative_realized_pnl': float(latest_value_result[3] if latest_value_result and latest_value_result[3] is not None else 0)
     }
 
 @app.get("/api/portfolio/chart-data")
