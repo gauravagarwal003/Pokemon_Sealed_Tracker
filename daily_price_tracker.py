@@ -8,6 +8,17 @@ import pandas as pd
 import requests
 from io import StringIO
 from datetime import datetime
+try:
+    # Python 3.9+ recommended
+    from zoneinfo import ZoneInfo
+    _PST_TZ = ZoneInfo('America/Los_Angeles')
+except Exception:
+    # Fallback to pytz if zoneinfo isn't available in the runtime
+    try:
+        import pytz
+        _PST_TZ = pytz.timezone('America/Los_Angeles')
+    except Exception:
+        _PST_TZ = None
 import os
 import sys
 import subprocess
@@ -26,8 +37,16 @@ def collect_daily_prices():
     # Create directory for daily price files
     os.makedirs('daily_prices', exist_ok=True)
     
-    # Create a new DataFrame for today's market prices
-    today = datetime.now().strftime("%Y-%m-%d")
+    # Create a new DataFrame for today's market prices (Pacific Time)
+    if _PST_TZ is not None:
+        try:
+            today_dt = datetime.now(_PST_TZ)
+        except Exception:
+            # Some pytz timezones require localize; fall back to naive now
+            today_dt = datetime.now()
+    else:
+        today_dt = datetime.now()
+    today = today_dt.strftime("%Y-%m-%d")
     price_records = []
     
     # Group products by set_code to minimize API calls
@@ -168,7 +187,15 @@ def run_portfolio_recompiler():
 def main():
     """Main function for daily price collection and portfolio update"""
     print("=== Pokemon Daily Price Collection ===")
-    print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    # Print the current timestamp in Pacific Time when possible
+    if _PST_TZ is not None:
+        try:
+            now_pst = datetime.now(_PST_TZ)
+        except Exception:
+            now_pst = datetime.now()
+    else:
+        now_pst = datetime.now()
+    print(f"Date: {now_pst.strftime('%Y-%m-%d %H:%M:%S')}")
     print()
     
     # Step 1: Collect daily prices
