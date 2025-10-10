@@ -1,16 +1,16 @@
 # Web Framework
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-pydantic>=2.4.0
+fastapi==0.104.1
+uvicorn==0.24.0
 
 # Data Processing
-pandas>=2.0.3
-pyarrow>=14.0.1
+pandas==2.1.4
+pyarrow==14.0.2
 matplotlib>=3.8.0
-numpy>=2.2.6
+numpy==1.24.3
 
 # Search and Visualization
-thefuzz>=0.22.1
+thefuzz==0.20.0
+python-levenshtein==0.23.0
 rapidfuzz>=3.14.0
 plotly>=5.17.0
 fuzzywuzzy>=0.18.0
@@ -21,3 +21,5 @@ webdriver-manager==4.0.2
 
 # Production (optional)
 gunicorn>=21.2.0
+python-multipart==0.0.6
+sqlite3

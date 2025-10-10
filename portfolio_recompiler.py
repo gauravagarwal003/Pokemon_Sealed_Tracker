@@ -28,11 +28,10 @@ class PortfolioRecompiler:
         return sqlite3.connect(self.db_path)
     
     def get_all_transactions(self):
-        """Get all non-deleted transactions"""
+        """Get all transactions (no soft delete filter needed)"""
         conn = self.get_connection()
         query = """
             SELECT * FROM transactions 
-            WHERE is_deleted = FALSE 
             ORDER BY transaction_date, created_at
         """
         df = pd.read_sql_query(query, conn)
@@ -204,9 +203,16 @@ class PortfolioRecompiler:
             tx_dates = sorted(set(transactions_df['transaction_date'].dt.date.tolist()))
             # merge and dedupe
             combined = sorted(set(available_dates + tx_dates))
-            available_dates = combined
+            
+            # Always include today's date to ensure we have current portfolio values
+            today = date.today()
+            if today not in combined:
+                combined.append(today)
+            
+            available_dates = sorted(combined)
         except Exception:
             pass
+        
         if not available_dates:
             print("No price data available")
             return
@@ -228,6 +234,8 @@ class PortfolioRecompiler:
             if not available_dates:
                 # If filtering somehow removed all dates, fall back to all available dates
                 available_dates = self.get_available_price_dates()
+        
+        print(f"Processing portfolio values for {len(available_dates)} dates from {available_dates[0]} to {available_dates[-1]}")
         
         conn = self.get_connection()
         cursor = conn.cursor()
@@ -275,10 +283,25 @@ class PortfolioRecompiler:
             holdings = self.calculate_holdings_at_date(transactions_df, calc_date)
             total_cost_basis = 0.0
             total_market_value = 0.0
+            
+            # Use the latest available price if current date doesn't have price data
+            latest_price_date = None
             for product_id, holding in holdings.items():
                 total_cost_basis += holding['total_cost_basis'] if holding['total_cost_basis'] is not None else 0.0
                 sealed_qty = holding.get('sealed_quantity', 0)
+                
+                # Try to get market price for this date, fall back to latest available
                 market_price = self.get_market_price(product_id, calc_date)
+                if market_price is None and sealed_qty > 0:
+                    # If no price for today, try to find the most recent price
+                    price_dates = [d for d in available_dates if d <= calc_date]
+                    for price_date in reversed(price_dates):
+                        market_price = self.get_market_price(product_id, price_date)
+                        if market_price is not None:
+                            if latest_price_date is None or price_date > latest_price_date:
+                                latest_price_date = price_date
+                            break
+                
                 if market_price and sealed_qty > 0:
                     total_market_value += sealed_qty * market_price
 
@@ -305,8 +328,7 @@ class PortfolioRecompiler:
             try:
                 sells_on_date = transactions_df[
                     (transactions_df['transaction_date'] == pd.to_datetime(calc_date)) &
-                    (transactions_df['transaction_type'] == 'SELL') &
-                    (transactions_df['is_deleted'] == False)
+                    (transactions_df['transaction_type'] == 'SELL')
                 ]
                 if not sells_on_date.empty:
                     for _, sell in sells_on_date.iterrows():
@@ -348,6 +370,9 @@ class PortfolioRecompiler:
         
         conn.commit()
         conn.close()
+        
+        if latest_price_date and latest_price_date < date.today():
+            print(f"Warning: Latest price data is from {latest_price_date}. Portfolio values after this date use the last available prices.")
         
         print(f"Recalculated daily values for {processed_dates} dates")
     

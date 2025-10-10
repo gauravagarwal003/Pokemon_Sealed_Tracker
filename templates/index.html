@@ -283,6 +283,62 @@
 
             <!-- Portfolio Overview Tab -->
             <div v-if="activeTab === 'portfolio'" class="space-y-6">
+                <!-- Auto-refresh indicator -->
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-gray-800">
+                        <i class="fas fa-chart-pie text-purple-500 mr-2"></i>
+                        Portfolio Overview
+                    </h2>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center">
+                            <span class="text-sm text-gray-600 mr-2">Auto-refresh:</span>
+                            <button 
+                                @click="toggleAutoRefresh"
+                                :class="[
+                                    'px-3 py-1 rounded-full text-xs font-medium transition-colors',
+                                    autoRefresh ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                                ]"
+                            >
+                                <i :class="autoRefresh ? 'fas fa-toggle-on' : 'fas fa-toggle-off'" class="mr-1"></i>
+                                {{ autoRefresh ? 'ON' : 'OFF' }}
+                            </button>
+                        </div>
+                        <button 
+                            @click="refreshPortfolioData"
+                            :disabled="refreshLoading"
+                            class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium hover:bg-blue-200 transition-colors"
+                        >
+                            <i :class="refreshLoading ? 'fas fa-spinner fa-spin' : 'fas fa-sync'" class="mr-1"></i>
+                            {{ refreshLoading ? 'Refreshing...' : 'Refresh' }}
+                        </button>
+                        <button 
+                            @click="updatePricesAndPortfolio"
+                            :disabled="priceUpdateLoading"
+                            class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium hover:bg-green-200 transition-colors"
+                        >
+                            <i :class="priceUpdateLoading ? 'fas fa-spinner fa-spin' : 'fas fa-download'" class="mr-1"></i>
+                            {{ priceUpdateLoading ? 'Updating Prices...' : 'Update Prices' }}
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Price Update Status -->
+                <transition name="fade">
+                    <div v-if="priceUpdateMessage" 
+                         :class="[
+                             'p-3 rounded-lg mb-4',
+                             priceUpdateMessage.type === 'success' ? 'bg-green-100 border border-green-200 text-green-800' : 'bg-yellow-100 border border-yellow-200 text-yellow-800'
+                         ]">
+                        <div class="flex items-center">
+                            <i :class="[
+                                'mr-2',
+                                priceUpdateMessage.type === 'success' ? 'fas fa-check-circle' : 'fas fa-info-circle'
+                            ]"></i>
+                            {{ priceUpdateMessage.text }}
+                        </div>
+                    </div>
+                </transition>
+                
                 <!-- Portfolio Metrics -->
                 <!-- Portfolio Summary Cards: 4 columns on desktop -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -536,7 +592,14 @@
                     sortKey: 'product_name',
                     sortAsc: true,
                     transactions: [],
-                    transactionFilter: 'All'
+                    transactionFilter: 'All',
+                    // Auto-refresh functionality
+                    autoRefresh: false,
+                    refreshInterval: null,
+                    refreshLoading: false,
+                    lastUpdateTime: null,
+                    priceUpdateLoading: false,
+                    priceUpdateMessage: null
                 }
             },
             computed: {
@@ -604,6 +667,10 @@
             mounted() {
                 this.loadPortfolioData();
                 this.loadTransactions();
+                this.lastUpdateTime = new Date();
+            },
+            beforeUnmount() {
+                this.stopAutoRefresh();
             },
             watch: {
                 activeTab(newTab) {
@@ -612,8 +679,14 @@
                         this.$nextTick(() => {
                             this.renderPortfolioChart();
                         });
+                        if (this.autoRefresh) {
+                            this.startAutoRefresh();
+                        }
                     } else if (newTab === 'history') {
                         this.loadTransactions();
+                        this.stopAutoRefresh();
+                    } else {
+                        this.stopAutoRefresh();
                     }
                 }
             },
@@ -656,6 +729,63 @@
                         console.error('Error getting product details:', error);
                     }
                 },
+                toggleAutoRefresh() {
+                    this.autoRefresh = !this.autoRefresh;
+                    if (this.autoRefresh && this.activeTab === 'portfolio') {
+                        this.startAutoRefresh();
+                    } else {
+                        this.stopAutoRefresh();
+                    }
+                },
+                startAutoRefresh() {
+                    this.stopAutoRefresh();
+                    this.refreshInterval = setInterval(() => {
+                        if (this.activeTab === 'portfolio') {
+                            this.refreshPortfolioData();
+                        }
+                    }, 30000); // Refresh every 30 seconds
+                },
+                stopAutoRefresh() {
+                    if (this.refreshInterval) {
+                        clearInterval(this.refreshInterval);
+                        this.refreshInterval = null;
+                    }
+                },
+                async refreshPortfolioData() {
+                    this.refreshLoading = true;
+                    try {
+                        await this.loadPortfolioData();
+                        this.$nextTick(() => {
+                            this.renderPortfolioChart();
+                        });
+                        this.lastUpdateTime = new Date();
+                    } catch (error) {
+                        console.error('Error refreshing portfolio data:', error);
+                    } finally {
+                        this.refreshLoading = false;
+                    }
+                },
+                async updatePricesAndPortfolio() {
+                    this.priceUpdateLoading = true;
+                    this.priceUpdateMessage = null;
+                    
+                    try {
+                        // Call the new API endpoint to update prices and portfolio
+                        const response = await axios.post('/api/portfolio/update-prices');
+                        
+                        this.showPriceUpdateMessage(response.data.message, 'success');
+                        
+                        // Refresh portfolio data after price update
+                        await this.refreshPortfolioData();
+                        
+                    } catch (error) {
+                        const errorMsg = error.response?.data?.detail || 'Error updating prices';
+                        this.showPriceUpdateMessage(errorMsg, 'error');
+                        console.error('Error updating prices:', error);
+                    } finally {
+                        this.priceUpdateLoading = false;
+                    }
+                },
                 async addTransaction() {
                     this.submitLoading = true;
                     try {
@@ -669,12 +799,8 @@
                         this.showMessage(message, 'success');
                         this.resetForm();
                         
-                        // Refresh data if on other tabs
-                        if (this.activeTab === 'portfolio') {
-                            this.loadPortfolioData();
-                        } else if (this.activeTab === 'history') {
-                            this.loadTransactions();
-                        }
+                        // Refresh all data automatically
+                        await this.refreshAllData();
                         
                     } catch (error) {
                         const errorMsg = error.response?.data?.detail || 'Error adding transaction';
@@ -750,18 +876,16 @@
                     }
                 },
                 async deleteTransaction(transactionId) {
-                    if (!confirm('Are you sure you want to delete this transaction?')) {
+                    if (!confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
                         return;
                     }
                     
                     try {
                         await axios.delete(`/api/transactions/${transactionId}`);
                         this.showMessage('Transaction deleted successfully', 'success');
-                        this.loadTransactions();
                         
-                        if (this.activeTab === 'portfolio') {
-                            this.loadPortfolioData();
-                        }
+                        // Refresh all data automatically
+                        await this.refreshAllData();
                     } catch (error) {
                         const errorMsg = error.response?.data?.detail || 'Error deleting transaction';
                         this.showMessage(errorMsg, 'error');
@@ -788,11 +912,33 @@
                         this.message = null;
                     }, 5000);
                 },
+                showPriceUpdateMessage(text, type) {
+                    this.priceUpdateMessage = { text, type };
+                    setTimeout(() => {
+                        this.priceUpdateMessage = null;
+                    }, 8000);
+                },
                 formatDate(dateString) {
                     return new Date(dateString).toLocaleDateString();
                 },
                 formatCurrency(amount) {
                     return parseFloat(amount).toFixed(2);
+                },
+                async refreshAllData() {
+                    // Refresh portfolio data if on portfolio tab
+                    if (this.activeTab === 'portfolio') {
+                        await this.loadPortfolioData();
+                        this.$nextTick(() => {
+                            this.renderPortfolioChart();
+                        });
+                    }
+                    
+                    // Refresh transaction history if on history tab
+                    if (this.activeTab === 'history') {
+                        await this.loadTransactions();
+                    }
+                    
+                    this.lastUpdateTime = new Date();
                 }
             }
         }).mount('#app');

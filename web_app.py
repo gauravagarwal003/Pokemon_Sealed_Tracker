@@ -132,7 +132,7 @@ def validate_inventory_for_transaction(product_id, quantity, transaction_type, e
             COALESCE(SUM(CASE WHEN transaction_type = 'SELL' THEN quantity ELSE 0 END), 0) -
             COALESCE(SUM(CASE WHEN transaction_type = 'OPEN' THEN quantity ELSE 0 END), 0) as current_quantity
         FROM transactions 
-        WHERE product_id = ? AND is_deleted = FALSE
+        WHERE product_id = ?
     """
     params = [product_id]
     
@@ -258,7 +258,7 @@ async def get_product(product_id: str):
                 COALESCE(SUM(CASE WHEN transaction_type = 'SELL' THEN quantity ELSE 0 END), 0) -
                 COALESCE(SUM(CASE WHEN transaction_type = 'OPEN' THEN quantity ELSE 0 END), 0) as current_quantity
             FROM transactions 
-            WHERE product_id = ? AND is_deleted = FALSE
+            WHERE product_id = ?
         """, (product_id,))
         result = cursor.fetchone()
         conn.close()
@@ -375,7 +375,7 @@ async def update_transaction(transaction_id: int, transaction: TransactionUpdate
         cursor = conn.cursor()
         
         # Get existing transaction
-        cursor.execute("SELECT * FROM transactions WHERE transaction_id = ? AND is_deleted = FALSE", (transaction_id,))
+        cursor.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,))
         existing = cursor.fetchone()
         if not existing:
             conn.close()
@@ -472,20 +472,20 @@ async def update_transaction(transaction_id: int, transaction: TransactionUpdate
 
 @app.delete("/api/transactions/{transaction_id}")
 async def delete_transaction(transaction_id: int):
-    """Delete a transaction"""
+    """Delete a transaction (hard delete)"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
         # Check if transaction exists
-        cursor.execute("SELECT transaction_id FROM transactions WHERE transaction_id = ? AND is_deleted = FALSE", 
+        cursor.execute("SELECT transaction_id FROM transactions WHERE transaction_id = ?", 
                      (transaction_id,))
         if not cursor.fetchone():
             conn.close()
             raise HTTPException(status_code=404, detail="Transaction not found")
         
-        # Mark as deleted
-        cursor.execute("UPDATE transactions SET is_deleted = TRUE WHERE transaction_id = ?", 
+        # Hard delete the transaction
+        cursor.execute("DELETE FROM transactions WHERE transaction_id = ?", 
                      (transaction_id,))
         conn.commit()
         conn.close()
@@ -501,6 +501,17 @@ async def delete_transaction(transaction_id: int):
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=f"Error deleting transaction: {str(e)}")
+
+def get_all_transactions(self):
+    """Get all transactions (no soft delete filter needed)"""
+    conn = self.get_connection()
+    query = """
+        SELECT * FROM transactions 
+        ORDER BY transaction_date, created_at
+    """
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
 
 @app.get("/api/portfolio/summary")
 async def get_portfolio_summary():
@@ -613,7 +624,7 @@ async def get_transactions(transaction_type: Optional[str] = None):
     """Get transaction history"""
     conn = get_db_connection()
     
-    query = "SELECT * FROM transactions WHERE is_deleted = FALSE"
+    query = "SELECT * FROM transactions WHERE 1=1"
     params = []
     
     if transaction_type and transaction_type != "All":
@@ -646,6 +657,47 @@ async def get_transactions(transaction_type: Optional[str] = None):
         })
     
     return {"transactions": transactions_list}
+
+@app.post("/api/portfolio/update-prices")
+async def update_prices_and_portfolio():
+    """Manually trigger price update and portfolio recompilation"""
+    try:
+        print("Manual price update requested...")
+        
+        # Run the daily price tracker to get latest prices
+        result = subprocess.run(
+            [sys.executable, 'daily_price_tracker.py', '--force'], 
+            capture_output=True, 
+            text=True, 
+            timeout=300  # 5 minute timeout
+        )
+        
+        if result.returncode == 0:
+            print("Price update completed successfully")
+            print(result.stdout)
+            return {
+                'message': 'Prices updated successfully! Portfolio has been recompiled with latest market data.',
+                'timestamp': datetime.now().isoformat(),
+                'details': result.stdout
+            }
+        else:
+            print(f"Price update failed: {result.stderr}")
+            # Try to run just the portfolio recompiler in case prices are already current
+            recompiler_success = run_portfolio_recompiler()
+            if recompiler_success:
+                return {
+                    'message': 'Portfolio recompiled with existing price data. Price update may have failed - check logs.',
+                    'timestamp': datetime.now().isoformat(),
+                    'warning': result.stderr
+                }
+            else:
+                raise HTTPException(status_code=500, detail=f"Price update failed: {result.stderr}")
+            
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=500, detail="Price update timed out after 5 minutes")
+    except Exception as e:
+        print(f"Error during manual price update: {e}")
+        raise HTTPException(status_code=500, detail=f"Error updating prices: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

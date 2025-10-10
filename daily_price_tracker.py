@@ -23,7 +23,7 @@ import os
 import sys
 import subprocess
 
-def collect_daily_prices():
+def collect_daily_prices(force_update=False):
     """Collect current prices for all sealed products and save to Parquet format"""
     
     try:
@@ -47,11 +47,19 @@ def collect_daily_prices():
     else:
         today_dt = datetime.now()
     today = today_dt.strftime("%Y-%m-%d")
+    
+    # Check if today's file already exists and skip if not forcing update
+    parquet_filename = f"daily_prices/market_prices_{today}.parquet"
+    if not force_update and os.path.exists(parquet_filename):
+        print(f"Price file for {today} already exists. Use force_update=True to refresh.")
+        return True
+    
     price_records = []
     
     # Group products by set_code to minimize API calls
     set_codes = sealed_df['set_code'].unique()
     processed_count = 0
+    successful_sets = 0
     
     for set_code in set_codes:
         print(f"Fetching prices for set {set_code}...")
@@ -107,6 +115,8 @@ def collect_daily_prices():
                     
                     price_records.append(price_record)
                     processed_count += 1
+                
+                successful_sets += 1
             else:
                 print(f"HTTP {response.status_code} for set {set_code}")
                 # Add records with None prices for products in this set
@@ -124,7 +134,7 @@ def collect_daily_prices():
             set_products = sealed_df[sealed_df['set_code'] == set_code]
             for _, product in set_products.iterrows():
                 price_records.append({
-                    'productId': int(product['productId']),
+                    'productId': str(product['productId']),
                     'marketPrice': None
                 })
                 processed_count += 1
@@ -139,7 +149,6 @@ def collect_daily_prices():
     price_df['productId'] = price_df['productId'].astype(str)
     
     # Save daily Parquet file
-    parquet_filename = f"daily_prices/market_prices_{today}.parquet"
     price_df.to_parquet(parquet_filename, engine='pyarrow', compression='snappy')
     print(f"Daily market prices saved to '{parquet_filename}'")
     
@@ -147,6 +156,7 @@ def collect_daily_prices():
     valid_prices = price_df['marketPrice'].dropna()
     if len(valid_prices) > 0:
         print(f"\nPrice Statistics for {today}:")
+        print(f"Successful set queries: {successful_sets} out of {len(set_codes)}")
         print(f"Products with market prices: {len(valid_prices)} out of {len(price_df)}")
         print(f"Average market price: ${valid_prices.mean():.2f}")
         print(f"Median market price: ${valid_prices.median():.2f}")
@@ -198,8 +208,13 @@ def main():
     print(f"Date: {now_pst.strftime('%Y-%m-%d %H:%M:%S')}")
     print()
     
+    # Check for force update flag
+    force_update = '--force' in sys.argv
+    if force_update:
+        print("Force update mode enabled - will refresh existing price files")
+    
     # Step 1: Collect daily prices
-    success = collect_daily_prices()
+    success = collect_daily_prices(force_update=force_update)
     if not success:
         print("Failed to collect daily prices")
         sys.exit(1)
@@ -209,6 +224,15 @@ def main():
     if not success:
         print("Portfolio recompiler failed, but prices were collected")
         sys.exit(1)
+    
+    # Show final summary
+    today = datetime.now().strftime('%Y-%m-%d')
+    parquet_file = f"daily_prices/market_prices_{today}.parquet"
+    if os.path.exists(parquet_file):
+        print(f"\n✅ Portfolio updated with prices from {today}")
+        print(f"📊 Chart should now extend through {today}")
+    else:
+        print(f"\n⚠️ No price file created for {today}")
     
     print("\n=== Daily update completed successfully ===")
 
