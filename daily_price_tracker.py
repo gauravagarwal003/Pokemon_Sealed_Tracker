@@ -28,8 +28,14 @@ def collect_daily_prices(force_update=False):
     
     try:
         sealed_df = pd.read_csv('sealed_products_tracking.csv')
+        print(f"Loaded sealed products tracking file with {len(sealed_df)} products")
+        
+        # Check if we have the new set code
+        unique_sets = sorted(sealed_df['set_code'].unique())
+        print(f"Tracking {len(unique_sets)} unique set codes: {unique_sets[-10:]}...")  # Show last 10
+        
     except FileNotFoundError:
-        print("ERROR: sealed_products_tracking.csv not found")
+        print("ERROR: sealed_products_tracking.csv not found. Please run product_discovery.py first.")
         return False
     
     print(f"Checking market prices for {len(sealed_df)} sealed products...")

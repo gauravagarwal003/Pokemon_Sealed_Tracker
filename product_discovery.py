@@ -12,7 +12,7 @@ set_codes = [
     2848, 2867, 2906, 2931, 2948, 3020, 3040, 3051, 3064, 3068, 3087, 3118, 3150, 3170, 3172, 
     3179, 17674, 17688, 17689, 22872, 22873, 22880, 23095, 23120, 23228, 23237, 23266, 23286, 
     23306, 23323, 23330, 23353, 23381, 23473, 23520, 23529, 23537, 23561, 23651, 23821, 24073, 
-    24163, 24269, 24325, 24326, 24380, 24382
+    24163, 24269, 24325, 24326, 24380, 24381, 24382
 ]
 
 # Dictionary to store counts per set
@@ -67,6 +67,7 @@ for set_code in set_codes:
                     'cleanName': item['cleanName'],
                     'imageUrl': item['imageUrl'],
                     'modifiedOn': item['modifiedOn'].strftime('%Y-%m-%d') if pd.notna(item['modifiedOn']) else '',
+                    'earliestDate': item['modifiedOn'].strftime('%Y-%m-%d') if pd.notna(item['modifiedOn']) else '',
                     'set_code': set_code,
                     'url': item.get('url', '')
                 }

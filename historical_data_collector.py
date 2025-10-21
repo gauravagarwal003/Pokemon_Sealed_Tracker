@@ -9,7 +9,7 @@ from pathlib import Path
 def collect_historical_data():
     """
     Collect historical price data from TCGPlayer archives
-    From 2024-02-08 to 2025-09-03 for sealed Pokemon products
+    From 2024-02-08 to current date for sealed Pokemon products
     """
     
     # Load our sealed product IDs
@@ -26,7 +26,11 @@ def collect_historical_data():
     try:
         sealed_df = pd.read_csv('sealed_products_tracking.csv')
         set_codes = set(sealed_df['set_code'].unique())
-        print(f"Loaded {len(set_codes)} set codes")
+        print(f"Loaded {len(set_codes)} set codes including the latest updates")
+        
+        # Show the newest set codes for verification
+        latest_sets = sorted(set_codes)[-5:]
+        print(f"Latest set codes being tracked: {latest_sets}")
     except FileNotFoundError:
         print("Error: sealed_products_tracking.csv not found. Please run product_discovery.py first.")
         return
